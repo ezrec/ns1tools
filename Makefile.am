@@ -1,4 +1,4 @@
 
-bin_PROGRAMS = ns1totxt
+bin_PROGRAMS = ns1tosql
 
-ns1totxt_SOURCES = ns1totxt.c
+ns1tosql_SOURCES = ns1tosql.c 

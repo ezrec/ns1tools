@@ -127,7 +127,7 @@ struct apinfo_s {
 	int64_t	first_timestamp;
 	int64_t	last_timestamp;
 	double latitude,longitude;
-	uint32_t channel_mask;
+	uint64_t channel_mask;
 	int32_t max_snr;
 	uint32_t ip_addr;
 	uint32_t ip_network;
@@ -166,29 +166,124 @@ static inline time_t time_winfile_to_unix(int64_t wtime)
 	return (time_t)tm;
 }
 
-#if 0
-void dump_packet(FILE *ouf, struct packet_s *packet)
-{
-	time_t tm = time_winfile_to_unix(packet->timestamp);
-	struct tm *ptime = localtime(&tm);
+struct sql_record {
+	const char *attr;
+	off_t offset;
+	enum rec_type_e {
+		REC_NONE=0,
+		REC_STRING,
+		REC_MAC,
+		REC_TIME64,
+		REC_DOUBLE,
+		REC_IP4,
+		REC_INT32,
+		REC_UINT32
+	} type;
+};
 
-	fprintf(ouf,"%c %lf\t%c %lf\t",
-		packet->latitude >= 0.0 ? 'N' : 'S',
-		fabs(packet->latitude),
-		packet->longitude >= 0.0 ? 'E' : 'W',
-		fabs(packet->longitude));
-//	fprintf(ouf,"%lf ft\t",packet->elevation);
-	fprintf(ouf,"( %s )\t",packet->ssid);
-	fprintf(ouf,"BBS\t");
-	fprintf(ouf,"( %.2x:%.2x:%.2x:%.2x:%.2x:%.2x )\t",
-		packet->mac[0],packet->mac[1],packet->mac[2],
-		packet->mac[3],packet->mac[4],packet->mac[5]);
-	fprintf(ouf,"%d:%.2d:%.2d (GMT)\t",ptime->tm_hour,ptime->tm_min,ptime->tm_sec);
-	fprintf(ouf,"%d %d %d\t",0,149+packet->signal,149+packet->noise);
-	fprintf(ouf,"# ( %s )\t",packet->name);
-	fprintf(ouf,"%.4x\t%.4x\t%d\n",packet->flags,packet->channelbits,packet->beacon_interval);
+#define RECLOC(type,sub) ((void *)(&((type *)NULL)->sub) - NULL)
+
+void sql_insert(FILE *ouf, const char *table, struct sql_record *recs, const void *data)
+{
+	int i;
+	fprintf(ouf,"insert into %s (",table);
+	for (i=0; recs[i].attr != NULL; i++) {
+		if (i != 0)
+			fprintf(ouf,",");
+		fprintf(ouf,"%s",recs[i].attr);
+	}
+
+	fprintf(ouf,") values (");
+
+	for (i=0; recs[i].attr != NULL; i++) {
+		int j;
+		if (i != 0)
+			fprintf(ouf,",");
+		switch (recs[i].type) {
+			case REC_STRING:
+				fprintf(ouf,"\"%s\"",(const char *)(data+recs[i].offset));
+				break;
+			case REC_MAC: {
+				const uint8_t *cp = (const uint8_t *)(data+recs[i].offset);
+				for (j=0; j < 6; j++) {
+					if (j!=0) fprintf(ouf,":");
+					fprintf(ouf,"%.2x",cp[j]);
+				}
+				break; }	
+			case REC_IP4: {
+				uint32_t val = *(const uint32_t *)(data+recs[i].offset);
+				fprintf(ouf,"%d.%d.%d.%d",
+						val & 0xff,
+						(val>>8)&0xff,
+						(val>>16)&0xff,
+						(val>>24)&0xff
+						);
+				break; }
+			case REC_TIME64: {
+				uint64_t val = *(const uint64_t *)(data+recs[i].offset);
+				time_t tm = time_winfile_to_unix(val);
+				fprintf(ouf,"%d",tm);
+				break; }
+			case REC_DOUBLE: {
+				double val = *(const double *)(data+recs[i].offset);
+				fprintf(ouf,"%g",val);
+				break; }
+			case REC_INT32: {
+				int32_t val = *(const int32_t *)(data+recs[i].offset);
+				fprintf(ouf,"%d",val);
+				break; }
+			case REC_UINT32: {
+				uint32_t val = *(const uint32_t *)(data+recs[i].offset);
+				fprintf(ouf,"%u",val);
+				break; }
+			case REC_NONE:
+			default:
+				fprintf(stderr,"ARGH - internal error for REC_NONE!\n");
+				exit(1);
+				break;
+		}
+
+	}
+
+	fprintf(ouf,");\n");
 }
-#endif
+
+
+void dump_apdata(FILE *ouf, struct apdata_s *packet)
+{
+	struct sql_record recs[]={
+		{ "timestamp", RECLOC(struct apdata_s,timestamp), REC_TIME64 },
+		{ "signal", RECLOC(struct apdata_s, signal), REC_INT32 },
+		{ "noise", RECLOC(struct apdata_s, noise), REC_INT32 },
+		{ "location_source", RECLOC(struct apdata_s, location_source), REC_UINT32 },
+		{ "latitude", RECLOC(struct apdata_s,latitude), REC_DOUBLE },
+		{ "longitude", RECLOC(struct apdata_s,longitude), REC_DOUBLE },
+		{ "altitude", RECLOC(struct apdata_s,altitude), REC_DOUBLE },
+		{ NULL, 0, 0 } };
+	
+	sql_insert(ouf,"apdata",recs,packet);
+}
+
+void dump_apinfo(FILE *ouf, struct apinfo_s *packet)
+{
+	struct sql_record recs[]={
+		{ "ssid", RECLOC(struct apinfo_s,ssid[0]), REC_STRING },
+		{ "mac",  RECLOC(struct apinfo_s,bssid[0]), REC_MAC },
+		{ "name", RECLOC(struct apinfo_s,name[0]), REC_STRING },
+		{ "timestamp", RECLOC(struct apinfo_s,first_timestamp), REC_TIME64 },
+		{ "latitude", RECLOC(struct apinfo_s,latitude), REC_DOUBLE },
+		{ "longitude", RECLOC(struct apinfo_s,longitude), REC_DOUBLE },
+		{ "ip_addr", RECLOC(struct apinfo_s,ip_addr), REC_IP4 },
+		{ "ip_network", RECLOC(struct apinfo_s,ip_network), REC_IP4 },
+		{ "ip_netmask", RECLOC(struct apinfo_s,ip_netmask), REC_IP4 },
+		{ "apflags", RECLOC(struct apinfo_s,apflags), REC_UINT32 },
+		{ NULL, 0, 0 } };
+	int i;
+
+	sql_insert(ouf,"apinfo",recs,packet);
+	for (i=0; i < packet->apdata_count; i++)
+		dump_apdata(ouf,&packet->apdata[i]);
+}
 
 int ns1_read_apdata(int fd, int version, struct apdata_s *packet)
 {
@@ -196,10 +291,12 @@ int ns1_read_apdata(int fd, int version, struct apdata_s *packet)
 	CREAD(le32,fd,&packet->signal);
 	CREAD(le32,fd,&packet->noise);
 	CREAD(le32,fd,&packet->location_source);
-	if (packet->location_source == 1) {
+	if (packet->location_source) {
 		CREAD(double,fd, &packet->latitude);
 		CREAD(double,fd, &packet->longitude);
 		CREAD(double,fd, &packet->altitude);
+		if (packet->altitude < -1000.0)
+			packet->altitude=0.0;
 	
 		CREAD(le32,fd, &packet->gps.sats);
 	
@@ -248,7 +345,7 @@ int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet)
 	if (version == 6)
 		return 0;
 
-	CREAD(le32,fd,&packet->channel_mask);
+	CREAD(le64,fd,&packet->channel_mask);
 	CREAD(le32,fd,&dummy);	/* Last reported channel */
 	CREAD(le32,fd,&packet->ip_addr);
 
@@ -265,6 +362,8 @@ int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet)
 		return 0;
 
 	CREAD(le32,fd,&packet->misc_flags);
+	CREAD(le32,fd,&dummy);	/* IE length */
+	lseek(fd,dummy,SEEK_CUR);
 
 	return err;
 }
@@ -306,6 +405,8 @@ struct ns1_file_s *ns1_read_fd(int fd)
 		err=ns1_read_apinfo(fd, ns1->version, &ns1->apinfo[i]);
 		if (err < 0)
 			return ns1;
+		// printf("Location 0x%x\n",lseek(fd,0,SEEK_CUR));
+		dump_apinfo(stdout, &ns1->apinfo[i]);
 	}
 
 	return ns1;
