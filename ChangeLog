@@ -1,4 +1,6 @@
-
+Fri Jun 11 11:04:46 EDT 2004
+	Make 0.2 release, libns1 and ns1.h are now created
+	Supports up to rev 12 NS1 files
 
 Sun Nov 23 17:48:30 EST 2003
 	Initial 0.1 release, with support for NS1 format versions 6 and 8
