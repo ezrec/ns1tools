@@ -1,5 +1,6 @@
 #!/bin/sh
-libtoolize
-automake --add-missing
+aclocal
 autoheader
+libtoolize --force
+automake --add-missing
 autoconf
