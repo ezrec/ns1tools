@@ -10,8 +10,6 @@
 
 #include <ns1.h>
 
-#define NS1_MAGIC 0x5374654e
-
 #ifdef DEBUG
 #define DPRINT(fmt, x...) fprintf(stdout,"%.4x: " fmt , (int)lseek(fd,0,SEEK_CUR) , ## x )
 #else
@@ -76,7 +74,7 @@ void sql_insert(FILE *ouf, const char *table, struct sql_record *recs, const voi
 			case REC_TIME64: {
 				uint64_t val = *(const uint64_t *)(data+recs[i].offset);
 				time_t tm = ns1_time_to_unix(val);
-				fprintf(ouf,"%d",tm);
+				fprintf(ouf,"%lld",(long long)tm);
 				break; }
 			case REC_DOUBLE: {
 				double val = *(const double *)(data+recs[i].offset);
@@ -142,8 +140,6 @@ void dump_apinfo(FILE *ouf, struct apinfo_s *packet)
 int main(int argc, char **argv)
 {
 	int ifd=0;
-	FILE *ofile=stdout;
-	uint32_t type=0;
 	int i;
 	struct ns1_file_s *ns1;
 

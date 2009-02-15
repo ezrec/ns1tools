@@ -1,4 +1,6 @@
 
+AM_CFLAGS=-Wall -Werror 
+
 bin_PROGRAMS = ns1tosql ns1totxt
 
 lib_LTLIBRARIES= libns1.la

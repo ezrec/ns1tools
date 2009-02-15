@@ -28,7 +28,7 @@ static inline int64_t llabs(int64_t v)
 #endif
 
 #define CREAD(type, fd, out) \
-	do { int cread_err=read_##type(fd, out); \
+	do { int cread_err=read_##type(fd, (void *)out); \
 	  if (cread_err < 0) return cread_err; } while (0)
 
 static int read_le32(int fd,uint32_t *out)
@@ -105,6 +105,8 @@ static int read_mac(int fd,uint8_t mac[6])
 	err=read(fd,mac,6);
 DPRINT("\tmac ad %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
 		mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
+
+	return err;
 }
 
 static int ns1_read_apdata(int fd, int version, struct apdata_s *packet)
@@ -127,12 +129,13 @@ static int ns1_read_apdata(int fd, int version, struct apdata_s *packet)
 		CREAD(double,fd, &packet->gps.mag_variation);
 		CREAD(double,fd, &packet->gps.hdop);
 	}
+
+	return 0;
 }
 
 static int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet)
 {
 	int err,i;
-	uint64_t t;
 	uint32_t dummy;
 
 	CREAD(string,fd, packet->ssid);
@@ -188,7 +191,7 @@ static int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet)
 	CREAD(le32,fd,&dummy);	/* IE length */
 	lseek(fd,dummy,SEEK_CUR);
 
-	return err;
+	return 0;
 }
 
 struct ns1_file_s *ns1_open_fd(int fd)
@@ -212,12 +215,12 @@ struct ns1_file_s *ns1_open_fd(int fd)
 	}
 
 	if (ns1->version > 12) {
-		fprintf(stderr,"%s: NetStumber version %d files not (yet) supported\n",ns1->version);
+		fprintf(stderr,"NetStumber version %d files not (yet) supported\n",ns1->version);
 		free(ns1);
 		return NULL;
 	}
 
-	err=read_le32(fd,&ns1->apinfo_count);
+	err=read_le32(fd,(void *)&ns1->apinfo_count);
 	if (err <= 0) {
 		ns1->apinfo_count=0;
 		return ns1;
@@ -226,8 +229,12 @@ struct ns1_file_s *ns1_open_fd(int fd)
 	ns1->apinfo=calloc(ns1->apinfo_count,sizeof(struct apinfo_s));
 	for (i=0; i < ns1->apinfo_count; i++) {
 		err=ns1_read_apinfo(fd, ns1->version, &ns1->apinfo[i]);
-		if (err < 0)
-			return ns1;
+		if (err < 0) {
+			fprintf(stderr, "Error reading record %d: %s\n", i, strerror(err));
+			free(ns1->apinfo);
+			free(ns1);
+			return NULL;
+		}
 	}
 
 	return ns1;
@@ -235,7 +242,7 @@ struct ns1_file_s *ns1_open_fd(int fd)
 
 void ns1_close(struct ns1_file_s *ns1)
 {
-	int i,j;
+	int i;
 
 	for (i=0; i < ns1->apinfo_count; i++) {
 		struct apinfo_s *info = &ns1->apinfo[i];
