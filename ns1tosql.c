@@ -53,6 +53,8 @@ void sql_insert(FILE *ouf, const char *table, struct sql_record *recs, const voi
 			fprintf(ouf,",");
 		switch (recs[i].type) {
 			case REC_STRING:
+//	This isnt the right evaluation. Postgres freaking hates empty values, so we have to stick something in there.
+//	THIS DOESN'T WORK RIGHT!!!
 				if ((const char *)(data+recs[i].offset) == NULL) fprintf(ouf,"\"empty-string\"");
 				if ((const char *)(data+recs[i].offset) != NULL ) fprintf(ouf,"\"%s\"",(const char *)(data+recs[i].offset));
 				break;
@@ -60,6 +62,7 @@ void sql_insert(FILE *ouf, const char *table, struct sql_record *recs, const voi
 				fprintf(ouf,"\"");
 				const uint8_t *cp = (const uint8_t *)(data+recs[i].offset);
 				for (j=0; j < 6; j++) {
+//	Postgres absolutely hates this as a MAC address. Dunno how to pass the value yet. There's a datatype for it tho -drew
 //					if (j!=0) fprintf(ouf,".");
 					fprintf(ouf,"%.2x",cp[j]);
 				}
@@ -107,6 +110,7 @@ void sql_insert(FILE *ouf, const char *table, struct sql_record *recs, const voi
 void dump_apdata(FILE *ouf, struct apdata_s *packet)
 {
 	struct sql_record recs[]={
+		// oh my christ these structs freak me out -drew
 		{ "uin", RECLOC(struct apdata_s,duin), REC_INT32 },
 		{ "timestamp", RECLOC(struct apdata_s,timestamp), REC_TIME64 },
 		{ "signal", RECLOC(struct apdata_s, signal), REC_INT32 },
@@ -123,6 +127,7 @@ void dump_apdata(FILE *ouf, struct apdata_s *packet)
 void dump_apinfo(FILE *ouf, struct apinfo_s *packet)
 {
 	struct sql_record recs[]={
+		// I just copied stuff and made it look like the rest. -drew
 		{ "uin", RECLOC(struct apinfo_s,iuin), REC_INT32 },
 		{ "ssid", RECLOC(struct apinfo_s,ssid[0]), REC_STRING },
 		{ "mac",  RECLOC(struct apinfo_s,bssid[0]), REC_MAC },

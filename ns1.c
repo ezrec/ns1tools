@@ -31,7 +31,7 @@ static inline int64_t llabs(int64_t v)
 	do { int cread_err=read_##type(fd, (void *)out); \
 	  if (cread_err < 0) return cread_err; } while (0)
 
-
+// I dunno why there are functions here, the syntax is beyond my comprehension.
 static int read_le32(int fd,uint32_t *out)
 {
 	uint32_t tmp=0;
@@ -46,6 +46,7 @@ static int read_le32(int fd,uint32_t *out)
 	}
 
 	*out=tmp;
+
 DPRINT("\tuint32 0x%.8x (%d)\n",tmp,tmp);
 	return 4;
 }
@@ -110,8 +111,12 @@ DPRINT("\tmac ad %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
 	return err;
 }
 
+
+// This is where the packets are generated. I don't understand how the functions are
+// called in this instance. The greater-than signs aren't something I know how to look up!
 static int ns1_read_apdata(int fd, int version, struct apdata_s *packet, int apinfo)
 {
+	// I added this, and figured out how to pass the variable above      ^^^^^^
 	packet->duin = apinfo ;
 	CREAD(le64,fd,&packet->timestamp);
 	CREAD(le32,fd,&packet->signal);
@@ -135,11 +140,15 @@ static int ns1_read_apdata(int fd, int version, struct apdata_s *packet, int api
 	return 0;
 }
 
+// Again, this is where the apinfo packets are read.
+
 static int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet, int apinfo)
 {
 	int err,i;
 	uint32_t dummy;
+	// I added this line as mentioned above also.
 	packet->iuin = apinfo;
+
 	CREAD(string,fd, packet->ssid);
 	CREAD(mac,fd, packet->bssid);
 	CREAD(le32,fd, &packet->signal.max);

@@ -13,7 +13,9 @@ struct ns1_file_s {
 };
 
 struct apinfo_s {
+// I had to add this line to create a SQL column for the relation value. -drew
 	int32_t iuin;
+
 	char ssid[256];
 	uint8_t bssid[6];
 	char name[256];
@@ -39,7 +41,10 @@ struct apinfo_s {
 };
 
 struct apdata_s {
+	// I did the same here, adding this line for the relation -drew
+	// took me a while to figure out where they were defined.
 	int32_t duin;
+
 	int64_t	timestamp;
 	int32_t	signal;
 	int32_t	noise;
