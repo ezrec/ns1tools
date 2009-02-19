@@ -53,18 +53,21 @@ void sql_insert(FILE *ouf, const char *table, struct sql_record *recs, const voi
 			fprintf(ouf,",");
 		switch (recs[i].type) {
 			case REC_STRING:
-				fprintf(ouf,"\"%s\"",(const char *)(data+recs[i].offset));
+				if ((const char *)(data+recs[i].offset) == NULL) fprintf(ouf,"\"empty-string\"");
+				if ((const char *)(data+recs[i].offset) != NULL ) fprintf(ouf,"\"%s\"",(const char *)(data+recs[i].offset));
 				break;
 			case REC_MAC: {
+				fprintf(ouf,"\"");
 				const uint8_t *cp = (const uint8_t *)(data+recs[i].offset);
 				for (j=0; j < 6; j++) {
-					if (j!=0) fprintf(ouf,":");
+//					if (j!=0) fprintf(ouf,".");
 					fprintf(ouf,"%.2x",cp[j]);
 				}
+				fprintf(ouf,"\"");
 				break; }	
 			case REC_IP4: {
 				uint32_t val = *(const uint32_t *)(data+recs[i].offset);
-				fprintf(ouf,"%d.%d.%d.%d",
+				fprintf(ouf,"\"%d.%d.%d.%d\"",
 						val & 0xff,
 						(val>>8)&0xff,
 						(val>>16)&0xff,
@@ -104,6 +107,7 @@ void sql_insert(FILE *ouf, const char *table, struct sql_record *recs, const voi
 void dump_apdata(FILE *ouf, struct apdata_s *packet)
 {
 	struct sql_record recs[]={
+		{ "uin", RECLOC(struct apdata_s,duin), REC_INT32 },
 		{ "timestamp", RECLOC(struct apdata_s,timestamp), REC_TIME64 },
 		{ "signal", RECLOC(struct apdata_s, signal), REC_INT32 },
 		{ "noise", RECLOC(struct apdata_s, noise), REC_INT32 },
@@ -119,6 +123,7 @@ void dump_apdata(FILE *ouf, struct apdata_s *packet)
 void dump_apinfo(FILE *ouf, struct apinfo_s *packet)
 {
 	struct sql_record recs[]={
+		{ "uin", RECLOC(struct apinfo_s,iuin), REC_INT32 },
 		{ "ssid", RECLOC(struct apinfo_s,ssid[0]), REC_STRING },
 		{ "mac",  RECLOC(struct apinfo_s,bssid[0]), REC_MAC },
 		{ "name", RECLOC(struct apinfo_s,name[0]), REC_STRING },

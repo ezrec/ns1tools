@@ -31,6 +31,7 @@ static inline int64_t llabs(int64_t v)
 	do { int cread_err=read_##type(fd, (void *)out); \
 	  if (cread_err < 0) return cread_err; } while (0)
 
+
 static int read_le32(int fd,uint32_t *out)
 {
 	uint32_t tmp=0;
@@ -109,8 +110,9 @@ DPRINT("\tmac ad %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
 	return err;
 }
 
-static int ns1_read_apdata(int fd, int version, struct apdata_s *packet)
+static int ns1_read_apdata(int fd, int version, struct apdata_s *packet, int apinfo)
 {
+	packet->duin = apinfo ;
 	CREAD(le64,fd,&packet->timestamp);
 	CREAD(le32,fd,&packet->signal);
 	CREAD(le32,fd,&packet->noise);
@@ -133,11 +135,11 @@ static int ns1_read_apdata(int fd, int version, struct apdata_s *packet)
 	return 0;
 }
 
-static int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet)
+static int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet, int apinfo)
 {
 	int err,i;
 	uint32_t dummy;
-
+	packet->iuin = apinfo;
 	CREAD(string,fd, packet->ssid);
 	CREAD(mac,fd, packet->bssid);
 	CREAD(le32,fd, &packet->signal.max);
@@ -163,7 +165,7 @@ static int ns1_read_apinfo(int fd, int version, struct apinfo_s *packet)
 	CREAD(le32,fd, &packet->apdata_count);
 	packet->apdata = calloc(packet->apdata_count,sizeof(struct apdata_s));
 	for (i = 0; i < packet->apdata_count; i++) {
-		err=ns1_read_apdata(fd, version, &packet->apdata[i]);
+		err=ns1_read_apdata(fd, version, &packet->apdata[i], apinfo);
 		if (err < 0) return err;
 	}
 	CREAD(string, fd, packet->name);
@@ -228,7 +230,7 @@ struct ns1_file_s *ns1_open_fd(int fd)
 
 	ns1->apinfo=calloc(ns1->apinfo_count,sizeof(struct apinfo_s));
 	for (i=0; i < ns1->apinfo_count; i++) {
-		err=ns1_read_apinfo(fd, ns1->version, &ns1->apinfo[i]);
+		err=ns1_read_apinfo(fd, ns1->version, &ns1->apinfo[i], i);
 		if (err < 0) {
 			fprintf(stderr, "Error reading record %d: %s\n", i, strerror(err));
 			free(ns1->apinfo);

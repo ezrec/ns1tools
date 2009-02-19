@@ -13,6 +13,7 @@ struct ns1_file_s {
 };
 
 struct apinfo_s {
+	int32_t iuin;
 	char ssid[256];
 	uint8_t bssid[6];
 	char name[256];
@@ -38,6 +39,7 @@ struct apinfo_s {
 };
 
 struct apdata_s {
+	int32_t duin;
 	int64_t	timestamp;
 	int32_t	signal;
 	int32_t	noise;
